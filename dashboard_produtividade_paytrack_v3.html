@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Produtividade — Paytrack</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#0F1117;--surface:#181C27;--surface2:#1E2333;--border:#2A3045;
+    --accent:#4F8EF7;--accent2:#22D3A0;--warn:#F5A623;--danger:#F05C5C;
+    --purple:#A78BFA;--text:#E8ECF4;--text2:#8B93A8;--text3:#555E75;
+    --radius:12px;--radius-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .topbar-left{display:flex;align-items:center;gap:14px;}
+  .logo{background:var(--accent);color:#fff;font-weight:700;font-size:13px;padding:6px 12px;border-radius:6px;letter-spacing:.5px;}
+  .topbar h1{font-size:15px;font-weight:500;}
+  .last-update{font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+  .refresh-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;}
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .main{padding:1.5rem 2rem;max-width:1600px;margin:0 auto;}
+  .top-banner{background:linear-gradient(135deg,#1a2240,#1E2333);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem 1.5rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  .banner-title{font-size:20px;font-weight:700;}
+  .banner-sub{font-size:13px;color:var(--text2);margin-top:3px;}
+  .banner-period{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);background:#1a2d52;padding:6px 14px;border-radius:6px;border:1px solid #2a4070;}
+  .controls-row{display:flex;gap:10px;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;}
+  .ctrl-group{display:flex;}
+  .ctrl-btn{background:var(--surface);border:1px solid var(--border);color:var(--text2);font-size:12px;font-weight:500;padding:7px 16px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;}
+  .ctrl-btn:first-child{border-radius:8px 0 0 8px;}
+  .ctrl-btn:last-child{border-radius:0 8px 8px 0;}
+  .ctrl-btn:not(:first-child){border-left:none;}
+  .ctrl-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .ctrl-btn:hover:not(.active){background:var(--surface2);color:var(--text);}
+  select{background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;outline:none;min-width:180px;}
+  select:focus{border-color:var(--accent);}
+  .metric-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:1.2rem;}
+  .metric-tab{background:transparent;border:1px solid var(--border);color:var(--text2);font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;}
+  .metric-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .metric-tab:hover:not(.active){border-color:var(--text3);color:var(--text);}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.5rem;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.2rem;position:relative;overflow:hidden;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .kpi-card.blue::before{background:var(--accent);}
+  .kpi-card.green::before{background:var(--accent2);}
+  .kpi-card.warn::before{background:var(--warn);}
+  .kpi-card.danger::before{background:var(--danger);}
+  .kpi-card.purple::before{background:var(--purple);}
+  .kpi-card.teal::before{background:#2DD4BF;}
+  .kpi-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;font-weight:500;}
+  .kpi-value{font-size:26px;font-weight:700;color:var(--text);line-height:1;font-family:'JetBrains Mono',monospace;}
+  .kpi-sub{font-size:11px;color:var(--text3);margin-top:5px;}
+  .chart-grid{display:grid;gap:14px;margin-bottom:14px;}
+  .chart-grid-2{grid-template-columns:1fr 1fr;}
+  .chart-grid-3{grid-template-columns:2fr 1fr;}
+  .chart-grid-4{grid-template-columns:1fr 1fr 1fr 1fr;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem 1.4rem;}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
+  .card-title{font-size:13px;font-weight:600;color:var(--text);}
+  .card-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+  .chart-wrap{position:relative;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);}
+  .legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text3);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;}
+  td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:var(--surface2);}
+  .num{font-family:'JetBrains Mono',monospace;}
+  .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;}
+  .badge-ok{background:#0D3B2B;color:#22D3A0;}
+  .badge-warn{background:#3B2A0D;color:#F5A623;}
+  .badge-bad{background:#3B0D0D;color:#F05C5C;}
+  .badge-na{background:var(--surface2);color:var(--text3);}
+  .meta-bar-wrap{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+  .meta-bar{height:100%;border-radius:3px;transition:width .6s ease;}
+  .loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999;}
+  .loading-overlay.hidden{display:none;}
+  .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{font-size:14px;color:var(--text2);}
+  .goal-line{position:absolute;border-top:2px dashed var(--warn);width:100%;pointer-events:none;}
+  .divider{flex:1;}
+  .day-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1rem;}
+  .day-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .15s;}
+  .day-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .day-btn:hover:not(.active){border-color:var(--text3);color:var(--text);}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Carregando dados da planilha...</div>
+</div>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">PAYTRACK</div>
+    <h1>Dashboard de Produtividade</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="last-update" id="lastUpdate">—</span>
+    <button class="refresh-btn" onclick="loadData()">↻ Atualizar</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="top-banner">
+    <div>
+      <div class="banner-title">Time de Atendimento</div>
+      <div class="banner-sub">Produtividade diária · Meta: 40 atendimentos/dia</div>
+    </div>
+    <div class="banner-period">Junho 2026</div>
+  </div>
+
+  <div class="controls-row">
+    <div class="ctrl-group">
+      <button class="ctrl-btn active" onclick="setView('team',this)">Visão do Time</button>
+      <button class="ctrl-btn" onclick="setView('diario',this)">Visão Diária</button>
+      <button class="ctrl-btn" onclick="setView('individual',this)">Consultor Individual</button>
+      <button class="ctrl-btn" onclick="setView('semana',this)">Comparar Semanas</button>
+      <button class="ctrl-btn" onclick="setView('metas',this)">Metas</button>
+      <button class="ctrl-btn" onclick="setView('qualidade',this)">Qualidade</button>
+    </div>
+    <select id="consultorSel" style="display:none" onchange="currentConsultor=this.value;render()"></select>
+    <div class="divider"></div>
+  </div>
+
+  <div class="metric-tabs" id="metricTabs">
+    <button class="metric-tab active" data-metric="total" onclick="setMetric('total',this)">Total</button>
+    <button class="metric-tab" data-metric="tel" onclick="setMetric('tel',this)">Telefone</button>
+    <button class="metric-tab" data-metric="chat" onclick="setMetric('chat',this)">Chat</button>
+    <button class="metric-tab" data-metric="zen" onclick="setMetric('zen',this)">Zendesk</button>
+    <button class="metric-tab" data-metric="supplier" onclick="setMetric('supplier',this)">Supplier</button>
+  </div>
+
+  <div class="kpi-grid" id="kpiGrid"></div>
+  <div id="chartsArea"></div>
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header">
+      <div><div class="card-title" id="tableTitle">Ranking do Time</div><div class="card-sub" id="tableSub">Total acumulado no período</div></div>
+    </div>
+    <div class="table-wrap"><table id="mainTable"></table></div>
+  </div>
+</div>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbxA4hOVqvbUTATrti8PM_uGR19ewE0WMAkAbbZ3cjLf12I_sTD4SIDzPGHH8cQAUe9f/exec';
+const META_DIA=40;
+const PALETTE=['#4F8EF7','#22D3A0','#F5A623','#A78BFA','#F05C5C','#38BDF8','#FB923C','#34D399','#E879F9','#FACC15'];
+const CANAL_COLORS={tel:'#4F8EF7',chat:'#22D3A0',zen:'#A78BFA',supplier:'#F5A623'};
+const WEEK_COLORS={S1:'#4F8EF7',S2:'#22D3A0',S3:'#F5A623',S4:'#A78BFA'};
+const WEEK_MAP={S1:'01–07 jun',S2:'08–14 jun',S3:'15–21 jun',S4:'22–30 jun'};
+
+let RAW={},names=[],currentView='team',currentMetric='total',currentConsultor='',currentDay='',charts={};
+
+function timeToMin(t){if(!t||t==='-')return null;const p=t.replace('00:','').split(':');if(p.length===2)return parseInt(p[0])+parseInt(p[1])/60;if(p.length===3)return parseInt(p[0])*60+parseInt(p[1])+parseInt(p[2])/60;return null;}
+function fmtTime(t){if(!t||t==='-')return '—';return t.substring(0,5);}
+function totalFor(n,m){return(RAW[n]||[]).reduce((s,r)=>s+(r[m]||0),0);}
+function avgSLA(n){const v=(RAW[n]||[]).filter(r=>r.sla!==null&&r.sla>=0).map(r=>r.sla);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}
+function avgCSAT(n,ch){const v=(RAW[n]||[]).filter(r=>r['csat_'+ch]!==null&&typeof r['csat_'+ch]==='number').map(r=>r['csat_'+ch]);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}
+function avgTMA(n,ch){const v=(RAW[n]||[]).map(r=>timeToMin(r['tma_'+ch])).filter(x=>x!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}
+function getAllDates(){const s=new Set();names.forEach(n=>(RAW[n]||[]).forEach(r=>s.add(r.data)));return[...s].sort((a,b)=>{const[da,ma]=a.split('/').map(Number);const[db,mb]=b.split('/').map(Number);return ma*100+da-(mb*100+db);});}
+function getWeek(d){const[day]=d.split('/').map(Number);return day<=7?'S1':day<=14?'S2':day<=21?'S3':'S4';}
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function slaClass(v){return v===null?'badge-na':v>=90?'badge-ok':v>=70?'badge-warn':'badge-bad';}
+function slaText(v){return v===null?'N/A':Math.round(v)+'%';}
+function csatPct(v){return v===null?'N/A':Math.round(v*100)+'%';}
+
+function chartOpts(noLegend,extraScales){
+  return{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:!noLegend,labels:{color:'#8B93A8',font:{size:11},boxWidth:10}},tooltip:{backgroundColor:'#1E2333',borderColor:'#2A3045',borderWidth:1,titleColor:'#E8ECF4',bodyColor:'#8B93A8',padding:10}},
+    scales:extraScales||{y:{beginAtZero:true,ticks:{color:'#555E75',font:{size:10}},grid:{color:'#2A3045'}},x:{ticks:{color:'#555E75',font:{size:10},maxRotation:45},grid:{display:false}}}};
+}
+
+async function loadData(){
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  try{
+    const res=await fetch(API_URL+'?t='+Date.now());
+    RAW=await res.json();
+    names=Object.keys(RAW).filter(n=>RAW[n]&&RAW[n].length>0);
+    const sel=document.getElementById('consultorSel');
+    sel.innerHTML='';
+    names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+    currentConsultor=names[0]||'';
+    sel.value=currentConsultor;
+    currentDay=getAllDates().slice(-1)[0]||'';
+    document.getElementById('lastUpdate').textContent='Atualizado: '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    render();
+  }catch(e){
+    document.getElementById('chartsArea').innerHTML='<div style="background:#3B0D0D;border:1px solid #F05C5C;border-radius:12px;padding:1.5rem;text-align:center;color:#F05C5C;margin:2rem 0">⚠️ Não foi possível carregar os dados.<br><small>Verifique se o Apps Script está publicado corretamente.</small></div>';
+  }finally{document.getElementById('loadingOverlay').classList.add('hidden');}
+}
+
+function setView(v,btn){
+  currentView=v;
+  document.querySelectorAll('.ctrl-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const showMetrics=!['semana','metas','qualidade','diario'].includes(v);
+  document.getElementById('metricTabs').style.display=showMetrics?'':'none';
+  document.getElementById('consultorSel').style.display=v==='individual'?'':'none';
+  render();
+}
+function setMetric(m,btn){currentMetric=m;document.querySelectorAll('.metric-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();}
+
+function render(){renderKPIs();
+  if(currentView==='team')renderTeam();
+  else if(currentView==='diario')renderDiario();
+  else if(currentView==='individual')renderIndividual();
+  else if(currentView==='semana')renderSemana();
+  else if(currentView==='metas')renderMetas();
+  else if(currentView==='qualidade')renderQualidade();
+}
+
+function renderKPIs(){
+  const g=document.getElementById('kpiGrid');
+  if(currentView==='individual'){
+    const n=currentConsultor;if(!n)return;
+    const tt=totalFor(n,'total'),tel=totalFor(n,'tel'),chat=totalFor(n,'chat'),zen=totalFor(n,'zen'),sup=totalFor(n,'supplier');
+    const sla=avgSLA(n);const dias=(RAW[n]||[]).length;
+    const metaDias=dias*META_DIA;const pctMeta=metaDias?Math.round(tt/metaDias*100):0;
+    g.innerHTML=`
+      <div class="kpi-card blue"><div class="kpi-label">Total Atendimentos</div><div class="kpi-value">${tt}</div><div class="kpi-sub">${dias} dias trabalhados</div></div>
+      <div class="kpi-card ${pctMeta>=100?'green':pctMeta>=70?'warn':'danger'}"><div class="kpi-label">Atingimento Meta</div><div class="kpi-value">${pctMeta}%</div><div class="kpi-sub">Meta: ${metaDias} total</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Telefone</div><div class="kpi-value">${tel}</div><div class="kpi-sub">${tt?Math.round(tel/tt*100):0}%</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Chat</div><div class="kpi-value">${chat}</div><div class="kpi-sub">${tt?Math.round(chat/tt*100):0}%</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">Zendesk</div><div class="kpi-value">${zen}</div><div class="kpi-sub">${tt?Math.round(zen/tt*100):0}%</div></div>
+      <div class="kpi-card ${sla&&sla>=90?'green':sla&&sla>=70?'warn':'danger'}"><div class="kpi-label">SLA Médio</div><div class="kpi-value">${slaText(sla)}</div><div class="kpi-sub">meta ≥90%</div></div>`;
+  } else {
+    const tt=names.reduce((s,n)=>s+totalFor(n,'total'),0);
+    const tel=names.reduce((s,n)=>s+totalFor(n,'tel'),0);
+    const chat=names.reduce((s,n)=>s+totalFor(n,'chat'),0);
+    const zen=names.reduce((s,n)=>s+totalFor(n,'zen'),0);
+    const sup=names.reduce((s,n)=>s+totalFor(n,'supplier'),0);
+    const slaVals=names.map(n=>avgSLA(n)).filter(v=>v!==null);
+    const slaMedia=slaVals.length?slaVals.reduce((a,b)=>a+b,0)/slaVals.length:null;
+    const acimaMeta=names.filter(n=>{const d=(RAW[n]||[]);return d.length&&(totalFor(n,'total')/d.length)>=META_DIA;}).length;
+    g.innerHTML=`
+      <div class="kpi-card blue"><div class="kpi-label">Total Atendimentos</div><div class="kpi-value">${tt.toLocaleString('pt-BR')}</div><div class="kpi-sub">${getAllDates().length} dias</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Acima da Meta</div><div class="kpi-value">${acimaMeta}/${names.length}</div><div class="kpi-sub">média ≥ ${META_DIA}/dia</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Telefone</div><div class="kpi-value">${tel.toLocaleString('pt-BR')}</div><div class="kpi-sub">${tt?Math.round(tel/tt*100):0}%</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Chat</div><div class="kpi-value">${chat.toLocaleString('pt-BR')}</div><div class="kpi-sub">${tt?Math.round(chat/tt*100):0}%</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">Zendesk</div><div class="kpi-value">${zen.toLocaleString('pt-BR')}</div><div class="kpi-sub">${tt?Math.round(zen/tt*100):0}%</div></div>
+      <div class="kpi-card ${slaMedia&&slaMedia>=90?'green':slaMedia&&slaMedia>=70?'warn':'danger'}"><div class="kpi-label">SLA Médio</div><div class="kpi-value">${slaText(slaMedia)}</div><div class="kpi-sub">todos os consultores</div></div>`;
+  }
+}
+
+function renderTeam(){
+  const allDates=getAllDates();
+  const top=names.slice().sort((a,b)=>totalFor(b,currentMetric)-totalFor(a,currentMetric)).slice(0,10);
+  document.getElementById('chartsArea').innerHTML=`
+    <div class="chart-grid chart-grid-3" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Evolução diária — linha de meta (${META_DIA}/dia)</div><div class="card-sub">Top 10 consultores</div></div></div>
+        <div class="legend" id="lineLegend"></div>
+        <div class="chart-wrap" style="height:300px"><canvas id="lineChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Distribuição por canal</div></div></div>
+        <div class="chart-wrap" style="height:300px"><canvas id="canalChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">SLA médio por consultor</div><div class="card-sub">Verde ≥90% · Amarelo ≥70%</div></div></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="slaChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Volume total por consultor</div></div></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="volChart"></canvas></div>
+      </div>
+    </div>`;
+
+  const leg=document.getElementById('lineLegend');
+  top.forEach((n,i)=>leg.innerHTML+=`<div class="legend-item"><span class="legend-dot" style="background:${PALETTE[i]}"></span>${n.split(' ')[0]}</div>`);
+
+  destroyChart('line');
+  const metaData=allDates.map(()=>META_DIA);
+  charts['line']=new Chart(document.getElementById('lineChart').getContext('2d'),{
+    type:'line',
+    data:{labels:allDates,datasets:[
+      {label:'Meta',data:metaData,borderColor:'#F5A62380',borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false,tension:0},
+      ...top.map((n,i)=>({label:n,tension:.35,borderWidth:2,pointRadius:3,borderColor:PALETTE[i],backgroundColor:PALETTE[i]+'20',fill:false,data:allDates.map(d=>{const r=(RAW[n]||[]).find(x=>x.data===d);return r?(r[currentMetric]||0):0;})}))
+    ]},options:chartOpts(true)
+  });
+
+  destroyChart('canal');
+  const tel=names.reduce((s,n)=>s+totalFor(n,'tel'),0),chat=names.reduce((s,n)=>s+totalFor(n,'chat'),0),zen=names.reduce((s,n)=>s+totalFor(n,'zen'),0),sup=names.reduce((s,n)=>s+totalFor(n,'supplier'),0);
+  charts['canal']=new Chart(document.getElementById('canalChart').getContext('2d'),{type:'doughnut',data:{labels:['Telefone','Chat','Zendesk','Supplier'],datasets:[{data:[tel,chat,zen,sup],backgroundColor:[CANAL_COLORS.tel,CANAL_COLORS.chat,CANAL_COLORS.zen,CANAL_COLORS.supplier],borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:'#8B93A8',font:{size:11},boxWidth:10,padding:12}}}}});
+
+  destroyChart('sla');
+  const slaData=names.map(n=>({n,v:avgSLA(n)})).filter(x=>x.v!==null).sort((a,b)=>b.v-a.v);
+  charts['sla']=new Chart(document.getElementById('slaChart').getContext('2d'),{type:'bar',data:{labels:slaData.map(x=>x.n.split(' ')[0]),datasets:[{data:slaData.map(x=>Math.round(x.v)),backgroundColor:slaData.map(x=>x.v>=90?'#22D3A060':x.v>=70?'#F5A62360':'#F05C5C60'),borderColor:slaData.map(x=>x.v>=90?'#22D3A0':x.v>=70?'#F5A623':'#F05C5C'),borderWidth:1.5,borderRadius:4}]},options:{...chartOpts(true),scales:{y:{min:0,max:100,ticks:{color:'#555E75',callback:v=>v+'%',font:{size:10}},grid:{color:'#2A3045'}},x:{ticks:{color:'#555E75',font:{size:10},maxRotation:45},grid:{display:false}}}}});
+
+  destroyChart('vol');
+  const volData=names.map(n=>({n,v:totalFor(n,currentMetric)})).sort((a,b)=>b.v-a.v);
+  charts['vol']=new Chart(document.getElementById('volChart').getContext('2d'),{type:'bar',data:{labels:volData.map(x=>x.n.split(' ')[0]),datasets:[{data:volData.map(x=>x.v),backgroundColor:'#4F8EF760',borderColor:'#4F8EF7',borderWidth:1.5,borderRadius:4}]},options:chartOpts(true)});
+
+  renderTable();
+}
+
+function renderDiario(){
+  const allDates=getAllDates();
+  if(!currentDay)currentDay=allDates[allDates.length-1];
+  document.getElementById('chartsArea').innerHTML=`
+    <div style="margin-bottom:12px">
+      <div class="day-filter" id="dayFilter"></div>
+    </div>
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title" id="dayBarTitle">Atendimentos em ${currentDay} — todos os consultores</div><div class="card-sub">Linha pontilhada = meta de ${META_DIA}</div></div></div>
+        <div class="chart-wrap" style="height:300px"><canvas id="dayBar"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">SLA no dia</div></div></div>
+        <div class="chart-wrap" style="height:300px"><canvas id="daySla"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><div><div class="card-title">Evolução de cada consultor ao longo dos dias</div><div class="card-sub">Linha pontilhada = meta de ${META_DIA}/dia</div></div></div>
+      <div class="legend" id="evolLegend"></div>
+      <div class="chart-wrap" style="height:280px"><canvas id="evolChart"></canvas></div>
+    </div>`;
+
+  // Day filter buttons
+  const df=document.getElementById('dayFilter');
+  allDates.forEach(d=>{
+    const btn=document.createElement('button');
+    btn.className='day-btn'+(d===currentDay?' active':'');
+    btn.textContent=d;
+    btn.onclick=()=>{currentDay=d;renderDiario();};
+    df.appendChild(btn);
+  });
+
+  // Bar chart for selected day
+  const dayDataNames=names.filter(n=>(RAW[n]||[]).some(r=>r.data===currentDay));
+  const dayVals=dayDataNames.map(n=>{const r=(RAW[n]||[]).find(x=>x.data===currentDay);return r?r.total:0;});
+  destroyChart('dayBar');
+  charts['dayBar']=new Chart(document.getElementById('dayBar').getContext('2d'),{
+    type:'bar',
+    data:{labels:dayDataNames.map(n=>n.split(' ')[0]),datasets:[
+      {label:'Meta',data:dayDataNames.map(()=>META_DIA),type:'line',borderColor:'#F5A62380',borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false},
+      {label:'Atendimentos',data:dayVals,backgroundColor:dayVals.map(v=>v>=META_DIA?'#22D3A060':'#4F8EF760'),borderColor:dayVals.map(v=>v>=META_DIA?'#22D3A0':'#4F8EF7'),borderWidth:1.5,borderRadius:4}
+    ]},
+    options:{...chartOpts(true),plugins:{legend:{display:false}}}
+  });
+
+  // SLA for day
+  const slaDay=dayDataNames.map(n=>{const r=(RAW[n]||[]).find(x=>x.data===currentDay);return r&&r.sla!==null?Math.round(r.sla):null;});
+  destroyChart('daySla');
+  charts['daySla']=new Chart(document.getElementById('daySla').getContext('2d'),{
+    type:'bar',
+    data:{labels:dayDataNames.map(n=>n.split(' ')[0]),datasets:[{data:slaDay,backgroundColor:slaDay.map(v=>v===null?'#2A3045':v>=90?'#22D3A060':v>=70?'#F5A62360':'#F05C5C60'),borderColor:slaDay.map(v=>v===null?'#555E75':v>=90?'#22D3A0':v>=70?'#F5A623':'#F05C5C'),borderWidth:1.5,borderRadius:4}]},
+    options:{...chartOpts(true),scales:{y:{min:0,max:100,ticks:{color:'#555E75',callback:v=>v+'%',font:{size:10}},grid:{color:'#2A3045'}},x:{ticks:{color:'#555E75',font:{size:10},maxRotation:45},grid:{display:false}}}}
+  });
+
+  // Evolution line
+  const top8=names.slice().sort((a,b)=>totalFor(b,'total')-totalFor(a,'total')).slice(0,8);
+  const leg=document.getElementById('evolLegend');
+  top8.forEach((n,i)=>leg.innerHTML+=`<div class="legend-item"><span class="legend-dot" style="background:${PALETTE[i]}"></span>${n.split(' ')[0]}</div>`);
+  destroyChart('evol');
+  charts['evol']=new Chart(document.getElementById('evolChart').getContext('2d'),{
+    type:'line',
+    data:{labels:allDates,datasets:[
+      {label:'Meta',data:allDates.map(()=>META_DIA),borderColor:'#F5A62380',borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false,tension:0},
+      ...top8.map((n,i)=>({label:n.split(' ')[0],tension:.35,borderWidth:2,pointRadius:3,borderColor:PALETTE[i],backgroundColor:PALETTE[i]+'15',fill:false,data:allDates.map(d=>{const r=(RAW[n]||[]).find(x=>x.data===d);return r?r.total:null;})}))
+    ]},options:chartOpts(true)
+  });
+
+  // Table for day
+  document.getElementById('tableTitle').textContent='Detalhe do dia '+currentDay;
+  document.getElementById('tableSub').textContent='Todos os consultores que trabalharam neste dia';
+  const t=document.getElementById('mainTable');
+  t.innerHTML='<thead><tr><th>Consultor(a)</th><th>Total</th><th>Tel</th><th>Chat</th><th>Zen</th><th>Supplier</th><th>SLA</th><th>Meta</th></tr></thead>';
+  const tb=document.createElement('tbody');
+  dayDataNames.forEach((n,i)=>{
+    const r=(RAW[n]||[]).find(x=>x.data===currentDay);
+    if(!r)return;
+    const ok=r.total>=META_DIA;
+    tb.innerHTML+=`<tr><td style="font-weight:500">${n}</td><td class="num" style="font-weight:600;color:${ok?'#22D3A0':'#F05C5C'}">${r.total}</td><td class="num">${r.tel}</td><td class="num">${r.chat}</td><td class="num">${r.zen}</td><td class="num">${r.supplier}</td><td><span class="badge ${slaClass(r.sla)}">${slaText(r.sla)}</span></td><td><span class="badge ${ok?'badge-ok':'badge-bad'}">${ok?'✓ Atingiu':'✗ Abaixo'}</span></td></tr>`;
+  });
+  t.appendChild(tb);
+}
+
+function renderIndividual(){
+  const n=currentConsultor;if(!n)return;
+  const d=RAW[n]||[];const allDates=getAllDates();
+  document.getElementById('chartsArea').innerHTML=`
+    <div class="chart-grid chart-grid-3" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">${n} — atendimentos por dia</div><div class="card-sub">Linha pontilhada = meta de ${META_DIA}</div></div></div>
+        <div class="chart-wrap" style="height:280px"><canvas id="indBar"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Distribuição por canal</div></div></div>
+        <div class="chart-wrap" style="height:280px"><canvas id="indCanal"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">SLA diário</div><div class="card-sub">Verde ≥90% · Amarelo ≥70%</div></div></div>
+        <div class="chart-wrap" style="height:200px"><canvas id="indSla"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">CSAT diário</div><div class="card-sub">Satisfação dos clientes</div></div></div>
+        <div class="chart-wrap" style="height:200px"><canvas id="indCsat"></canvas></div>
+      </div>
+    </div>`;
+
+  destroyChart('indBar');
+  charts['indBar']=new Chart(document.getElementById('indBar').getContext('2d'),{
+    type:'bar',
+    data:{labels:d.map(r=>r.data),datasets:[
+      {label:'Meta',data:d.map(()=>META_DIA),type:'line',borderColor:'#F5A62380',borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false},
+      {label:'Atendimentos',data:d.map(r=>r[currentMetric]||0),backgroundColor:d.map(r=>(r.total>=META_DIA||currentMetric!=='total')?'#4F8EF760':'#F05C5C60'),borderColor:d.map(r=>(r.total>=META_DIA||currentMetric!=='total')?'#4F8EF7':'#F05C5C'),borderWidth:1.5,borderRadius:5}
+    ]},options:{...chartOpts(true),plugins:{legend:{display:false}}}
+  });
+
+  destroyChart('indCanal');
+  const tel=totalFor(n,'tel'),chat=totalFor(n,'chat'),zen=totalFor(n,'zen'),sup=totalFor(n,'supplier');
+  charts['indCanal']=new Chart(document.getElementById('indCanal').getContext('2d'),{type:'doughnut',data:{labels:['Telefone','Chat','Zendesk','Supplier'],datasets:[{data:[tel,chat,zen,sup],backgroundColor:[CANAL_COLORS.tel,CANAL_COLORS.chat,CANAL_COLORS.zen,CANAL_COLORS.supplier],borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'bottom',labels:{color:'#8B93A8',font:{size:11},boxWidth:10,padding:12}}}}});
+
+  destroyChart('indSla');
+  const slaD=d.filter(r=>r.sla!==null&&r.sla>=0);
+  charts['indSla']=new Chart(document.getElementById('indSla').getContext('2d'),{type:'bar',data:{labels:slaD.map(r=>r.data),datasets:[{data:slaD.map(r=>Math.round(r.sla)),backgroundColor:slaD.map(r=>r.sla>=90?'#22D3A060':r.sla>=70?'#F5A62360':'#F05C5C60'),borderColor:slaD.map(r=>r.sla>=90?'#22D3A0':r.sla>=70?'#F5A623':'#F05C5C'),borderWidth:1.5,borderRadius:4}]},options:{...chartOpts(true),scales:{y:{min:0,max:100,ticks:{color:'#555E75',callback:v=>v+'%',font:{size:10}},grid:{color:'#2A3045'}},x:{ticks:{color:'#555E75',font:{size:10}},grid:{display:false}}}}});
+
+  destroyChart('indCsat');
+  const csatD=d.filter(r=>r.csat_tel!==null||r.csat_chat!==null);
+  charts['indCsat']=new Chart(document.getElementById('indCsat').getContext('2d'),{
+    type:'bar',
+    data:{labels:csatD.map(r=>r.data),datasets:[
+      {label:'Tel',data:csatD.map(r=>r.csat_tel!==null?Math.round(r.csat_tel*100):null),backgroundColor:'#4F8EF760',borderColor:'#4F8EF7',borderWidth:1.5,borderRadius:3},
+      {label:'Chat',data:csatD.map(r=>r.csat_chat!==null?Math.round(r.csat_chat*100):null),backgroundColor:'#22D3A060',borderColor:'#22D3A0',borderWidth:1.5,borderRadius:3},
+      {label:'Zen',data:csatD.map(r=>r.csat_zen!==null?Math.round(r.csat_zen*100):null),backgroundColor:'#A78BFA60',borderColor:'#A78BFA',borderWidth:1.5,borderRadius:3}
+    ]},
+    options:{...chartOpts(false),scales:{y:{min:0,max:100,ticks:{color:'#555E75',callback:v=>v+'%',font:{size:10}},grid:{color:'#2A3045'}},x:{ticks:{color:'#555E75',font:{size:10}},grid:{display:false}}}}
+  });
+
+  renderTable();
+}
+
+function renderSemana(){
+  const weeks=['S1','S2','S3','S4'];
+  const teamWeeks={};weeks.forEach(w=>teamWeeks[w]=names.reduce((s,n)=>{const r=(RAW[n]||[]).filter(x=>getWeek(x.data)===w);return s+r.reduce((a,b)=>a+(b.total||0),0);},0));
+  const consultorWeekData=names.map(n=>{const wt={};weeks.forEach(w=>wt[w]=0);(RAW[n]||[]).forEach(r=>{const w=getWeek(r.data);if(wt[w]!==undefined)wt[w]+=r.total||0;});return{n,...wt};}).filter(x=>weeks.some(w=>x[w]>0));
+
+  document.getElementById('chartsArea').innerHTML=`
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Volume por semana — time completo</div></div></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="semTeam"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Comparativo semanal por consultor</div><div class="legend" style="margin-top:6px">${weeks.map(w=>`<div class="legend-item"><span class="legend-dot" style="background:${WEEK_COLORS[w]}"></span>${WEEK_MAP[w]}</div>`).join('')}</div></div></div>
+        <div class="chart-wrap" style="height:220px"><canvas id="semConsultor"></canvas></div>
+      </div>
+    </div>`;
+
+  destroyChart('semTeam');
+  charts['semTeam']=new Chart(document.getElementById('semTeam').getContext('2d'),{type:'bar',data:{labels:weeks.map(w=>WEEK_MAP[w]),datasets:[{data:weeks.map(w=>teamWeeks[w]),backgroundColor:weeks.map(w=>WEEK_COLORS[w]+'80'),borderColor:weeks.map(w=>WEEK_COLORS[w]),borderWidth:1.5,borderRadius:6}]},options:chartOpts(true)});
+
+  destroyChart('semConsultor');
+  const top8=consultorWeekData.sort((a,b)=>weeks.reduce((s,w)=>s+b[w]-a[w],0)).slice(0,8);
+  charts['semConsultor']=new Chart(document.getElementById('semConsultor').getContext('2d'),{type:'bar',data:{labels:top8.map(x=>x.n.split(' ')[0]),datasets:weeks.map(w=>({label:WEEK_MAP[w],data:top8.map(x=>x[w]),backgroundColor:WEEK_COLORS[w]+'80',borderColor:WEEK_COLORS[w],borderWidth:1.5,borderRadius:3}))},options:{...chartOpts(true),plugins:{legend:{display:false}}}});
+
+  document.getElementById('tableTitle').textContent='Produtividade por semana';
+  document.getElementById('tableSub').textContent='Total de atendimentos por semana';
+  const t=document.getElementById('mainTable');
+  t.innerHTML=`<thead><tr><th>Consultor(a)</th>${weeks.map(w=>`<th>${WEEK_MAP[w]}</th>`).join('')}<th>Total</th></tr></thead>`;
+  const tb=document.createElement('tbody');
+  consultorWeekData.sort((a,b)=>weeks.reduce((s,w)=>s+b[w]-a[w],0)).forEach(x=>{
+    const tot=weeks.reduce((s,w)=>s+x[w],0);
+    tb.innerHTML+=`<tr><td style="font-weight:500">${x.n}</td>${weeks.map(w=>`<td class="num">${x[w]||0}</td>`).join('')}<td class="num" style="font-weight:600">${tot}</td></tr>`;
+  });
+  t.appendChild(tb);
+}
+
+function renderMetas(){
+  document.getElementById('chartsArea').innerHTML=`
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><div><div class="card-title">Atingimento da meta diária — ${META_DIA} atendimentos/dia</div><div class="card-sub">Média diária de cada consultor vs meta</div></div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;margin-top:4px" id="metaCards"></div>
+    </div>
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Média diária por consultor</div><div class="card-sub">Linha = meta de ${META_DIA}</div></div></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="metaBar"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">% de dias acima da meta</div><div class="card-sub">Dias em que atingiu ≥${META_DIA} atendimentos</div></div></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="metaDias"></canvas></div>
+      </div>
+    </div>`;
+
+  const consultorData=names.map(n=>{
+    const d=RAW[n]||[];const dias=d.filter(r=>r.total>0).length||1;
+    const media=totalFor(n,'total')/dias;
+    const diasAcima=d.filter(r=>r.total>=META_DIA).length;
+    const pctDias=d.length?Math.round(diasAcima/d.length*100):0;
+    return{n,media:Math.round(media*10)/10,dias,diasAcima,pctDias,pct:Math.min(Math.round(media/META_DIA*100),150)};
+  }).sort((a,b)=>b.media-a.media);
+
+  const mc=document.getElementById('metaCards');
+  consultorData.forEach(({n,media,dias,diasAcima,pct})=>{
+    const color=pct>=100?'#22D3A0':pct>=70?'#F5A623':'#F05C5C';
+    mc.innerHTML+=`
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-weight:600;font-size:13px">${n}</div>
+          <div style="font-size:13px;color:${color};font-family:'JetBrains Mono',monospace;font-weight:700">${media}/dia</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class="meta-bar-wrap"><div class="meta-bar" style="width:${Math.min(pct,100)}%;background:${color}"></div></div>
+          <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:${color};min-width:36px">${pct}%</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">${diasAcima} de ${dias} dias acima da meta</div>
+      </div>`;
+  });
+
+  destroyChart('metaBar');
+  charts['metaBar']=new Chart(document.getElementById('metaBar').getContext('2d'),{
+    type:'bar',
+    data:{labels:consultorData.map(x=>x.n.split(' ')[0]),datasets:[
+      {label:'Meta',data:consultorData.map(()=>META_DIA),type:'line',borderColor:'#F5A62380',borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false},
+      {label:'Média/dia',data:consultorData.map(x=>x.media),backgroundColor:consultorData.map(x=>x.media>=META_DIA?'#22D3A060':'#F05C5C60'),borderColor:consultorData.map(x=>x.media>=META_DIA?'#22D3A0':'#F05C5C'),borderWidth:1.5,borderRadius:4}
+    ]},options:{...chartOpts(true),plugins:{legend:{display:false}}}
+  });
+
+  destroyChart('metaDias');
+  charts['metaDias']=new Chart(document.getElementById('metaDias').getContext('2d'),{
+    type:'bar',
+    data:{labels:consultorData.map(x=>x.n.split(' ')[0]),datasets:[{label:'% dias acima da meta',data:consultorData.map(x=>x.pctDias),backgroundColor:consultorData.map(x=>x.pctDias>=70?'#22D3A060':'#F5A62360'),borderColor:consultorData.map(x=>x.pctDias>=70?'#22D3A0':'#F5A623'),borderWidth:1.5,borderRadius:4}]},
+    options:{...chartOpts(true),scales:{y:{min:0,max:100,ticks:{color:'#555E75',callback:v=>v+'%',font:{size:10}},grid:{color:'#2A3045'}},x:{ticks:{color:'#555E75',font:{size:10},maxRotation:45},grid:{display:false}}}}
+  });
+
+  document.getElementById('tableTitle').textContent='Ranking de metas';
+  document.getElementById('tableSub').textContent='Média diária vs meta de '+META_DIA+'/dia';
+  const t=document.getElementById('mainTable');
+  t.innerHTML='<thead><tr><th>#</th><th>Consultor(a)</th><th>Dias</th><th>Média/dia</th><th>Dias acima meta</th><th>% dias meta</th><th>Atingimento</th></tr></thead>';
+  const tb=document.createElement('tbody');
+  consultorData.forEach(({n,media,dias,diasAcima,pctDias,pct},i)=>{
+    const col=pct>=100?'badge-ok':pct>=70?'badge-warn':'badge-bad';
+    tb.innerHTML+=`<tr><td class="num" style="color:var(--text3)">${i+1}</td><td style="font-weight:500">${n}</td><td class="num">${dias}</td><td class="num">${media}</td><td class="num">${diasAcima}</td><td class="num">${pctDias}%</td><td><span class="badge ${col}">${pct}%</span></td></tr>`;
+  });
+  t.appendChild(tb);
+}
+
+function renderQualidade(){
+  document.getElementById('chartsArea').innerHTML=`
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">CSAT médio por consultor</div><div class="card-sub">Satisfação dos clientes por canal</div></div></div>
+        <div class="chart-wrap" style="height:280px"><canvas id="csatBar"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">TMA médio — Telefone vs Chat</div><div class="card-sub">Tempo Médio de Atendimento (minutos)</div></div></div>
+        <div class="chart-wrap" style="height:280px"><canvas id="tmaBar"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">SLA médio por consultor</div><div class="card-sub">Verde ≥90% · Amarelo ≥70%</div></div></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="qualSla"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">CSAT geral do time — distribuição</div><div class="card-sub">Média de todos os canais</div></div></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="csatGeral"></canvas></div>
+      </div>
+    </div>`;
+
+  // CSAT por consultor
+  const csatData=names.map(n=>({n,tel:avgCSAT(n,'tel'),chat:avgCSAT(n,'chat'),zen:avgCSAT(n,'zen')}))
+    .filter(x=>x.tel!==null||x.chat!==null||x.zen!==null)
+    .sort((a,b)=>{const av=v=>v===null?0:v;return(av(b.tel)+av(b.chat)+av(b.zen))-(av(a.tel)+av(a.chat)+av(a.zen));});
+
+  destroyChart('csatBar');
+  charts['csatBar']=new Chart(document.getElementById('csatBar').getContext('2d'),{
+    type:'bar',
+    data:{labels:csatData.map(x=>x.n.split(' ')[0]),datasets:[
+      {label:'Telefone',data:csatData.map(x=>x.tel!==null?Math.round(x.tel*100):null),backgroundColor:'#4F8EF760',borderColor:'#4F8EF7',borderWidth:1.5,borderRadius:3},
+      {label:'Chat',data:csatData.map(x=>x.chat!==null?Math.round(x.chat*100):null),backgroundColor:'#22D3A060',borderColor:'#22D3A0',borderWidth:1.5,borderRadius:3},
+      {label:'Zendesk',data:csatData.map(x=>x.zen!==null?Math.round(x.zen*100):null),backgroundColor:'#A78BFA60',borderColor:'#A78BFA',borderWidth:1.5,borderRadius:3}
+    ]},
+    options:{...chartOpts(false),scales:{y:{min:0,max:100,ticks:{color:'#555E75',callback:v=>v+'%',font:{size:10}},grid:{color:'#2A3045'}},x:{ticks:{color:'#555E75',font:{size:10},maxRotation:45},grid:{display:false}}}}
+  });
+
+  // TMA por consultor
+  const tmaData=names.map(n=>({n,tel:avgTMA(n,'tel'),chat:avgTMA(n,'chat')}))
+    .filter(x=>x.tel!==null||x.chat!==null)
+    .sort((a,b)=>(a.tel||0)-(b.tel||0));
+
+  destroyChart('tmaBar');
+  charts['tmaBar']=new Chart(document.getElementById('tmaBar').getContext('2d'),{
+    type:'bar',
+    data:{labels:tmaData.map(x=>x.n.split(' ')[0]),datasets:[
+      {label:'TMA Telefone (min)',data:tmaData.map(x=>x.tel!==null?Math.round(x.tel*10)/10:null),backgroundColor:'#4F8EF760',borderColor:'#4F8EF7',borderWidth:1.5,borderRadius:3},
+      {label:'TMA Chat (min)',data:tmaData.map(x=>x.chat!==null?Math.round(x.chat*10)/10:null),backgroundColor:'#22D3A060',borderColor:'#22D3A0',borderWidth:1.5,borderRadius:3}
+    ]},
+    options:chartOpts(false)
+  });
+
+  // SLA
+  destroyChart('qualSla');
+  const slaData=names.map(n=>({n,v:avgSLA(n)})).filter(x=>x.v!==null).sort((a,b)=>b.v-a.v);
+  charts['qualSla']=new Chart(document.getElementById('qualSla').getContext('2d'),{type:'bar',data:{labels:slaData.map(x=>x.n.split(' ')[0]),datasets:[{data:slaData.map(x=>Math.round(x.v)),backgroundColor:slaData.map(x=>x.v>=90?'#22D3A060':x.v>=70?'#F5A62360':'#F05C5C60'),borderColor:slaData.map(x=>x.v>=90?'#22D3A0':x.v>=70?'#F5A623':'#F05C5C'),borderWidth:1.5,borderRadius:4}]},options:{...chartOpts(true),scales:{y:{min:0,max:100,ticks:{color:'#555E75',callback:v=>v+'%',font:{size:10}},grid:{color:'#2A3045'}},x:{ticks:{color:'#555E75',font:{size:10},maxRotation:45},grid:{display:false}}}}});
+
+  // CSAT geral donut
+  destroyChart('csatGeral');
+  const csatTel=names.map(n=>avgCSAT(n,'tel')).filter(v=>v!==null);
+  const csatChat=names.map(n=>avgCSAT(n,'chat')).filter(v=>v!==null);
+  const csatZen=names.map(n=>avgCSAT(n,'zen')).filter(v=>v!==null);
+  const avgT=csatTel.length?csatTel.reduce((a,b)=>a+b,0)/csatTel.length:0;
+  const avgC=csatChat.length?csatChat.reduce((a,b)=>a+b,0)/csatChat.length:0;
+  const avgZ=csatZen.length?csatZen.reduce((a,b)=>a+b,0)/csatZen.length:0;
+  charts['csatGeral']=new Chart(document.getElementById('csatGeral').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:['Telefone','Chat','Zendesk'],datasets:[{data:[Math.round(avgT*100),Math.round(avgC*100),Math.round(avgZ*100)],backgroundColor:['#4F8EF780','#22D3A080','#A78BFA80'],borderColor:['#4F8EF7','#22D3A0','#A78BFA'],borderWidth:1.5,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom',labels:{color:'#8B93A8',font:{size:11},boxWidth:10,padding:12}},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.raw+'%'}}}}
+  });
+
+  // Table
+  document.getElementById('tableTitle').textContent='Indicadores de qualidade por consultor';
+  document.getElementById('tableSub').textContent='CSAT, TMA e SLA médios do período';
+  const t=document.getElementById('mainTable');
+  t.innerHTML='<thead><tr><th>Consultor(a)</th><th>CSAT Tel</th><th>CSAT Chat</th><th>CSAT Zen</th><th>TMA Tel (min)</th><th>TMA Chat (min)</th><th>SLA médio</th></tr></thead>';
+  const tb=document.createElement('tbody');
+  names.forEach(n=>{
+    const ct=avgCSAT(n,'tel'),cc=avgCSAT(n,'chat'),cz=avgCSAT(n,'zen');
+    const tmaT=avgTMA(n,'tel'),tmaC=avgTMA(n,'chat');
+    const sla=avgSLA(n);
+    tb.innerHTML+=`<tr>
+      <td style="font-weight:500">${n}</td>
+      <td class="num">${ct!==null?Math.round(ct*100)+'%':'—'}</td>
+      <td class="num">${cc!==null?Math.round(cc*100)+'%':'—'}</td>
+      <td class="num">${cz!==null?Math.round(cz*100)+'%':'—'}</td>
+      <td class="num">${tmaT!==null?Math.round(tmaT*10)/10+'min':'—'}</td>
+      <td class="num">${tmaC!==null?Math.round(tmaC*10)/10+'min':'—'}</td>
+      <td><span class="badge ${slaClass(sla)}">${slaText(sla)}</span></td>
+    </tr>`;
+  });
+  t.appendChild(tb);
+}
+
+function renderTable(){
+  const t=document.getElementById('mainTable');
+  if(currentView==='individual'){
+    const n=currentConsultor;
+    document.getElementById('tableTitle').textContent=n+' — histórico diário';
+    document.getElementById('tableSub').textContent='Detalhe por dia trabalhado';
+    t.innerHTML='<thead><tr><th>Data</th><th>Total</th><th>Tel</th><th>Chat</th><th>Zen</th><th>Supplier</th><th>SLA</th><th>Meta</th></tr></thead>';
+    const tb=document.createElement('tbody');
+    (RAW[n]||[]).forEach(r=>{
+      const ok=r.total>=META_DIA;
+      tb.innerHTML+=`<tr><td style="font-weight:500">${r.data}</td><td class="num" style="color:${ok?'#22D3A0':'#F05C5C'};font-weight:600">${r.total}</td><td class="num">${r.tel}</td><td class="num">${r.chat}</td><td class="num">${r.zen}</td><td class="num">${r.supplier}</td><td><span class="badge ${slaClass(r.sla)}">${slaText(r.sla)}</span></td><td><span class="badge ${ok?'badge-ok':'badge-bad'}">${ok?'✓':'✗'}</span></td></tr>`;
+    });
+    t.appendChild(tb);
+  } else {
+    document.getElementById('tableTitle').textContent='Ranking do Time';
+    document.getElementById('tableSub').textContent='Total acumulado no período';
+    t.innerHTML='<thead><tr><th>#</th><th>Consultor(a)</th><th>Dias</th><th>Total</th><th>Média/dia</th><th>Tel</th><th>Chat</th><th>Zen</th><th>Supplier</th><th>SLA</th></tr></thead>';
+    const tb=document.createElement('tbody');
+    names.map(n=>({n,total:totalFor(n,'total'),tel:totalFor(n,'tel'),chat:totalFor(n,'chat'),zen:totalFor(n,'zen'),sup:totalFor(n,'supplier'),sla:avgSLA(n),dias:(RAW[n]||[]).filter(r=>r.total>0).length}))
+      .sort((a,b)=>b.total-a.total)
+      .forEach((r,i)=>{
+        const media=r.dias?Math.round(r.total/r.dias*10)/10:0;
+        const ok=media>=META_DIA;
+        tb.innerHTML+=`<tr><td class="num" style="color:var(--text3)">${i+1}</td><td style="font-weight:500">${r.n}</td><td class="num">${r.dias}</td><td class="num" style="font-weight:600">${r.total}</td><td class="num" style="color:${ok?'#22D3A0':'#F05C5C'}">${media}</td><td class="num">${r.tel}</td><td class="num">${r.chat}</td><td class="num">${r.zen}</td><td class="num">${r.sup}</td><td><span class="badge ${slaClass(r.sla)}">${slaText(r.sla)}</span></td></tr>`;
+      });
+    t.appendChild(tb);
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
