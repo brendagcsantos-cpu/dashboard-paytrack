@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Produtividade — Paytrack</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0F1117;
+    --surface: #181C27;
+    --surface2: #1E2333;
+    --border: #2A3045;
+    --accent: #4F8EF7;
+    --accent2: #22D3A0;
+    --warn: #F5A623;
+    --danger: #F05C5C;
+    --text: #E8ECF4;
+    --text2: #8B93A8;
+    --text3: #555E75;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* HEADER */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+  }
+  .topbar h1 { font-size: 15px; font-weight: 500; color: var(--text); }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .last-update { font-size: 12px; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* MAIN */
+  .main { padding: 1.5rem 2rem; max-width: 1600px; margin: 0 auto; }
+
+  /* CONTROLS */
+  .controls-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .ctrl-group { display: flex; gap: 0; }
+  .ctrl-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 16px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+  }
+  .ctrl-btn:first-child { border-radius: 8px 0 0 8px; }
+  .ctrl-btn:last-child { border-radius: 0 8px 8px 0; }
+  .ctrl-btn:not(:first-child) { border-left: none; }
+  .ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .ctrl-btn:hover:not(.active) { background: var(--surface2); color: var(--text); }
+
+  select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    min-width: 180px;
+  }
+  select:focus { border-color: var(--accent); }
+
+  .divider { flex: 1; }
+
+  /* LOADING */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; z-index: 999;
+  }
+  .loading-overlay.hidden { display: none; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--text2); }
+
+  /* KPI CARDS */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .kpi-card.blue::before { background: var(--accent); }
+  .kpi-card.green::before { background: var(--accent2); }
+  .kpi-card.warn::before { background: var(--warn); }
+  .kpi-card.danger::before { background: var(--danger); }
+  .kpi-card.purple::before { background: #A78BFA; }
+  .kpi-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; font-weight: 500; }
+  .kpi-value { font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; font-family: 'JetBrains Mono', monospace; }
+  .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 5px; }
+
+  /* CHART GRID */
+  .chart-grid { display: grid; gap: 14px; margin-bottom: 1.5rem; }
+  .chart-grid-2 { grid-template-columns: 1fr 1fr; }
+  .chart-grid-3 { grid-template-columns: 2fr 1fr; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.2rem 1.4rem;
+  }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .card-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  .chart-wrap { position: relative; }
+
+  /* LEGEND */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); cursor: pointer; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text3); font-weight: 500;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    white-space: nowrap;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface2); }
+  .rank-num { color: var(--text3); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .consultant-name { font-weight: 500; }
+  .num { font-family: 'JetBrains Mono', monospace; }
+
+  /* BADGE */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .badge-ok { background: #0D3B2B; color: #22D3A0; }
+  .badge-warn { background: #3B2A0D; color: #F5A623; }
+  .badge-bad { background: #3B0D0D; color: #F05C5C; }
+  .badge-na { background: var(--surface2); color: var(--text3); }
+
+  /* TABS */
+  .metric-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1.2rem; }
+  .metric-tab {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text2); font-size: 12px; font-weight: 500;
+    padding: 5px 14px; border-radius: 20px; cursor: pointer;
+    font-family: 'Inter', sans-serif; transition: all 0.15s;
+  }
+  .metric-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .metric-tab:hover:not(.active) { border-color: var(--text3); color: var(--text); }
+
+  /* WEEK COMPARISON */
+  .week-labels { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .week-label {
+    font-size: 11px; padding: 3px 10px; border-radius: 4px;
+    font-weight: 500; font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* META */
+  .meta-row { display: flex; align-items: center; gap: 8px; }
+  .meta-bar-wrap { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .meta-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .meta-pct { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text2); min-width: 36px; text-align: right; }
+
+  /* ERROR */
+  .error-box {
+    background: #3B0D0D; border: 1px solid var(--danger);
+    border-radius: var(--radius); padding: 1.5rem;
+    text-align: center; color: var(--danger); font-size: 14px;
+    margin: 2rem 0;
+  }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text3); font-weight: 600; margin-bottom: 10px;
+  }
+
+  /* TOP BANNER */
+  .top-banner {
+    background: linear-gradient(135deg, #1a2240 0%, #1E2333 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .banner-title { font-size: 20px; font-weight: 700; color: var(--text); }
+  .banner-sub { font-size: 13px; color: var(--text2); margin-top: 3px; }
+  .banner-period {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; color: var(--accent);
+    background: #1a2d52; padding: 6px 14px; border-radius: 6px;
+    border: 1px solid #2a4070;
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Carregando dados da planilha...</div>
+</div>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">PAYTRACK</div>
+    <h1>Dashboard de Produtividade</h1>
+  </div>
+  <div class="topbar-right">
+    <span class="last-update" id="lastUpdate">—</span>
+    <button class="refresh-btn" onclick="loadData()">↻ Atualizar</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="top-banner">
+    <div>
+      <div class="banner-title">Time de Atendimento</div>
+      <div class="banner-sub">Produtividade diária · Apoio técnico</div>
+    </div>
+    <div class="banner-period" id="bannerPeriod">Junho 2026</div>
+  </div>
+
+  <!-- VIEW CONTROLS -->
+  <div class="controls-row">
+    <div class="ctrl-group">
+      <button class="ctrl-btn active" data-view="team" onclick="setView('team', this)">Visão do Time</button>
+      <button class="ctrl-btn" data-view="individual" onclick="setView('individual', this)">Consultor Individual</button>
+      <button class="ctrl-btn" data-view="semana" onclick="setView('semana', this)">Comparar Semanas</button>
+      <button class="ctrl-btn" data-view="metas" onclick="setView('metas', this)">Metas</button>
+    </div>
+    <select id="consultorSel" style="display:none" onchange="setConsultor(this.value)"></select>
+    <div class="divider"></div>
+  </div>
+
+  <!-- METRIC TABS -->
+  <div class="metric-tabs" id="metricTabs">
+    <button class="metric-tab active" data-metric="total" onclick="setMetric('total',this)">Total</button>
+    <button class="metric-tab" data-metric="tel" onclick="setMetric('tel',this)">Telefone</button>
+    <button class="metric-tab" data-metric="chat" onclick="setMetric('chat',this)">Chat</button>
+    <button class="metric-tab" data-metric="zen" onclick="setMetric('zen',this)">Zendesk</button>
+    <button class="metric-tab" data-metric="supplier" onclick="setMetric('supplier',this)">Supplier</button>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <!-- CHARTS -->
+  <div id="chartsArea"></div>
+
+  <!-- TABLE -->
+  <div class="card" id="tableCard" style="margin-bottom:1.5rem">
+    <div class="card-header">
+      <div>
+        <div class="card-title" id="tableTitle">Ranking do Time</div>
+        <div class="card-sub" id="tableSub">Total acumulado no período</div>
+      </div>
+    </div>
+    <div class="table-wrap"><table id="mainTable"></table></div>
+  </div>
+
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/a/macros/paytrack.com.br/s/AKfycbwoQ4bzmC6r23uV70cHpZrGlB-SjpEvOuVsXeq0gCOqDR9uXA3xvkddZwhPvmMhQFceiw/exec';
+
+const PALETTE = ['#4F8EF7','#22D3A0','#F5A623','#A78BFA','#F05C5C','#38BDF8','#FB923C','#34D399','#E879F9','#FACC15','#60A5FA','#4ADE80','#F87171','#C084FC','#FCD34D'];
+const CANAL_COLORS = { tel: '#4F8EF7', chat: '#22D3A0', zen: '#A78BFA', supplier: '#F5A623' };
+const METAS = { tel: 15, chat: 10, zen: 20, supplier: 15, total: 50 };
+
+let RAW = {};
+let names = [];
+let currentView = 'team';
+let currentMetric = 'total';
+let currentConsultor = '';
+let charts = {};
+
+// ── DATA LOADING ──────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  try {
+    const res = await fetch(API_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('Erro na requisição');
+    RAW = await res.json();
+    names = Object.keys(RAW).filter(n => RAW[n] && RAW[n].length > 0);
+    const sel = document.getElementById('consultorSel');
+    sel.innerHTML = '';
+    names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+    currentConsultor = names[0] || '';
+    sel.value = currentConsultor;
+    const now = new Date();
+    document.getElementById('lastUpdate').textContent = 'Atualizado: ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    render();
+  } catch(e) {
+    document.getElementById('chartsArea').innerHTML = `<div class="error-box">⚠️ Não foi possível carregar os dados.<br><small>Verifique se o Apps Script está publicado corretamente.</small></div>`;
+  } finally {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function totalFor(name, metric) { return (RAW[name]||[]).reduce((s,r) => s + (r[metric]||0), 0); }
+function avgSLA(name) { const v = (RAW[name]||[]).filter(r=>r.sla!==null&&r.sla>=0).map(r=>r.sla); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+function getAllDates() {
+  const s = new Set();
+  names.forEach(n => (RAW[n]||[]).forEach(r => s.add(r.data)));
+  return [...s].sort((a,b) => { const [da,ma]=a.split('/').map(Number); const [db,mb]=b.split('/').map(Number); return ma*100+da-(mb*100+db); });
+}
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+function slaClass(v) { if(v===null) return 'badge-na'; if(v>=90) return 'badge-ok'; if(v>=70) return 'badge-warn'; return 'badge-bad'; }
+function slaText(v) { return v===null ? 'N/A' : Math.round(v)+'%'; }
+
+function getWeek(dateStr) {
+  const [d] = dateStr.split('/').map(Number);
+  if(d <= 7) return 'S1';
+  if(d <= 14) return 'S2';
+  if(d <= 21) return 'S3';
+  return 'S4';
+}
+
+// ── VIEW CONTROLLERS ──────────────────────────────────────────
+function setView(v, btn) {
+  currentView = v;
+  document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const showMetrics = v !== 'semana' && v !== 'metas';
+  document.getElementById('metricTabs').style.display = showMetrics ? '' : 'none';
+  document.getElementById('consultorSel').style.display = (v === 'individual') ? '' : 'none';
+  render();
+}
+function setMetric(m, btn) {
+  currentMetric = m;
+  document.querySelectorAll('.metric-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+function setConsultor(v) { currentConsultor = v; render(); }
+
+// ── RENDER ────────────────────────────────────────────────────
+function render() {
+  renderKPIs();
+  if(currentView === 'team') renderTeam();
+  else if(currentView === 'individual') renderIndividual();
+  else if(currentView === 'semana') renderSemana();
+  else if(currentView === 'metas') renderMetas();
+}
+
+// ── KPIs ──────────────────────────────────────────────────────
+function renderKPIs() {
+  const g = document.getElementById('kpiGrid');
+  if(currentView === 'team' || currentView === 'semana' || currentView === 'metas') {
+    const tt = names.reduce((s,n)=>s+totalFor(n,'total'),0);
+    const tel = names.reduce((s,n)=>s+totalFor(n,'tel'),0);
+    const chat = names.reduce((s,n)=>s+totalFor(n,'chat'),0);
+    const zen = names.reduce((s,n)=>s+totalFor(n,'zen'),0);
+    const sup = names.reduce((s,n)=>s+totalFor(n,'supplier'),0);
+    const slaVals = names.map(n=>avgSLA(n)).filter(v=>v!==null);
+    const slaMedia = slaVals.length ? slaVals.reduce((a,b)=>a+b,0)/slaVals.length : null;
+    const diasAtivos = [...new Set(names.flatMap(n=>(RAW[n]||[]).map(r=>r.data)))].length;
+    g.innerHTML = `
+      <div class="kpi-card blue"><div class="kpi-label">Total Atendimentos</div><div class="kpi-value">${tt.toLocaleString('pt-BR')}</div><div class="kpi-sub">${diasAtivos} dias registrados</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Telefone</div><div class="kpi-value">${tel.toLocaleString('pt-BR')}</div><div class="kpi-sub">${tt?Math.round(tel/tt*100):0}% do total</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Chat</div><div class="kpi-value">${chat.toLocaleString('pt-BR')}</div><div class="kpi-sub">${tt?Math.round(chat/tt*100):0}% do total</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">Zendesk</div><div class="kpi-value">${zen.toLocaleString('pt-BR')}</div><div class="kpi-sub">${tt?Math.round(zen/tt*100):0}% do total</div></div>
+      <div class="kpi-card warn"><div class="kpi-label">Supplier</div><div class="kpi-value">${sup.toLocaleString('pt-BR')}</div><div class="kpi-sub">${tt?Math.round(sup/tt*100):0}% do total</div></div>
+      <div class="kpi-card ${slaMedia&&slaMedia>=90?'green':slaMedia&&slaMedia>=70?'warn':'danger'}"><div class="kpi-label">SLA Médio</div><div class="kpi-value">${slaMedia?Math.round(slaMedia)+'%':'N/A'}</div><div class="kpi-sub">todos os consultores</div></div>
+    `;
+  } else {
+    const n = currentConsultor; if(!n) return;
+    const tt = totalFor(n,'total'), tel=totalFor(n,'tel'), chat=totalFor(n,'chat'), zen=totalFor(n,'zen'), sup=totalFor(n,'supplier');
+    const sla = avgSLA(n);
+    const dias = (RAW[n]||[]).length;
+    const melhor = (RAW[n]||[]).reduce((mx,r)=>r.total>mx?r.total:mx,0);
+    g.innerHTML = `
+      <div class="kpi-card blue"><div class="kpi-label">Total Atendimentos</div><div class="kpi-value">${tt}</div><div class="kpi-sub">${dias} dias trabalhados</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Telefone</div><div class="kpi-value">${tel}</div><div class="kpi-sub">${tt?Math.round(tel/tt*100):0}%</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Chat</div><div class="kpi-value">${chat}</div><div class="kpi-sub">${tt?Math.round(chat/tt*100):0}%</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">Zendesk</div><div class="kpi-value">${zen}</div><div class="kpi-sub">${tt?Math.round(zen/tt*100):0}%</div></div>
+      <div class="kpi-card warn"><div class="kpi-label">Supplier</div><div class="kpi-value">${sup}</div><div class="kpi-sub">${tt?Math.round(sup/tt*100):0}%</div></div>
+      <div class="kpi-card ${sla&&sla>=90?'green':sla&&sla>=70?'warn':'danger'}"><div class="kpi-label">SLA Médio</div><div class="kpi-value">${sla?Math.round(sla)+'%':'N/A'}</div><div class="kpi-sub">Melhor dia: ${melhor}</div></div>
+    `;
+  }
+}
+
+// ── TEAM VIEW ─────────────────────────────────────────────────
+function renderTeam() {
+  const allDates = getAllDates();
+  const top = names.slice().sort((a,b)=>totalFor(b,currentMetric)-totalFor(a,currentMetric)).slice(0,10);
+  const area = document.getElementById('chartsArea');
+  area.innerHTML = `
+    <div class="chart-grid chart-grid-3" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title" id="lineTitle">Evolução diária — top consultores</div><div class="card-sub">Top 10 por volume</div></div></div>
+        <div class="legend" id="lineLegend"></div>
+        <div class="chart-wrap" style="height:300px"><canvas id="lineChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Distribuição por canal</div><div class="card-sub">Todo o time</div></div></div>
+        <div class="chart-wrap" style="height:300px"><canvas id="canalChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">SLA por consultor</div><div class="card-sub">Média do período · Verde ≥90% · Amarelo ≥70%</div></div></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="slaChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Volume total por consultor</div><div class="card-sub">Acumulado no período</div></div></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="volChart"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  // Legend
+  const leg = document.getElementById('lineLegend');
+  top.forEach((n,i) => {
+    leg.innerHTML += `<div class="legend-item"><span class="legend-dot" style="background:${PALETTE[i]}"></span>${n.split(' ')[0]}</div>`;
+  });
+
+  destroyChart('line'); destroyChart('canal'); destroyChart('sla'); destroyChart('vol');
+
+  // Line chart
+  charts['line'] = new Chart(document.getElementById('lineChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: allDates,
+      datasets: top.map((n,i) => ({
+        label: n, tension: 0.35, borderWidth: 2, pointRadius: 3,
+        borderColor: PALETTE[i], backgroundColor: PALETTE[i]+'20', fill: false,
+        data: allDates.map(d => { const r=(RAW[n]||[]).find(x=>x.data===d); return r?(r[currentMetric]||0):0; })
+      }))
+    },
+    options: chartOpts(false)
+  });
+
+  // Canal donut
+  const tel=names.reduce((s,n)=>s+totalFor(n,'tel'),0);
+  const chat=names.reduce((s,n)=>s+totalFor(n,'chat'),0);
+  const zen=names.reduce((s,n)=>s+totalFor(n,'zen'),0);
+  const sup=names.reduce((s,n)=>s+totalFor(n,'supplier'),0);
+  charts['canal'] = new Chart(document.getElementById('canalChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels:['Telefone','Chat','Zendesk','Supplier'], datasets:[{ data:[tel,chat,zen,sup], backgroundColor:[CANAL_COLORS.tel,CANAL_COLORS.chat,CANAL_COLORS.zen,CANAL_COLORS.supplier], borderWidth:0, hoverOffset:6 }] },
+    options: { responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ position:'bottom', labels:{ color:'#8B93A8', font:{size:11}, boxWidth:10, padding:12 } } } }
+  });
+
+  // SLA bar
+  const slaData = names.map(n=>({n, v:avgSLA(n)})).filter(x=>x.v!==null).sort((a,b)=>b.v-a.v);
+  charts['sla'] = new Chart(document.getElementById('slaChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: slaData.map(x=>x.n.split(' ')[0]),
+      datasets:[{ data:slaData.map(x=>Math.round(x.v)), backgroundColor:slaData.map(x=>x.v>=90?'#22D3A060':x.v>=70?'#F5A62360':'#F05C5C60'), borderColor:slaData.map(x=>x.v>=90?'#22D3A0':x.v>=70?'#F5A623':'#F05C5C'), borderWidth:1.5, borderRadius:4 }]
+    },
+    options: { ...chartOpts(true), scales:{ y:{ min:0, max:100, ticks:{ color:'#555E75', callback:v=>v+'%', font:{size:10} }, grid:{color:'#2A3045'} }, x:{ ticks:{color:'#555E75',font:{size:10},maxRotation:45}, grid:{display:false} } } }
+  });
+
+  // Volume bar
+  const volData = names.map(n=>({n, v:totalFor(n,currentMetric)})).sort((a,b)=>b.v-a.v);
+  charts['vol'] = new Chart(document.getElementById('volChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels:volData.map(x=>x.n.split(' ')[0]), datasets:[{ data:volData.map(x=>x.v), backgroundColor:'#4F8EF760', borderColor:'#4F8EF7', borderWidth:1.5, borderRadius:4 }] },
+    options: { ...chartOpts(true) }
+  });
+
+  renderTable();
+}
+
+// ── INDIVIDUAL VIEW ───────────────────────────────────────────
+function renderIndividual() {
+  const n = currentConsultor; if(!n) return;
+  const d = RAW[n] || [];
+  const area = document.getElementById('chartsArea');
+  area.innerHTML = `
+    <div class="chart-grid chart-grid-3" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">${n} — atendimentos por dia</div><div class="card-sub">Canal: ${currentMetric}</div></div></div>
+        <div class="chart-wrap" style="height:300px"><canvas id="indBar"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Distribuição por canal</div><div class="card-sub">${n}</div></div></div>
+        <div class="chart-wrap" style="height:300px"><canvas id="indCanal"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><div><div class="card-title">SLA diário — ${n}</div><div class="card-sub">Verde ≥90% · Amarelo ≥70% · Vermelho abaixo</div></div></div>
+      <div class="chart-wrap" style="height:200px"><canvas id="indSla"></canvas></div>
+    </div>
+  `;
+
+  destroyChart('indBar'); destroyChart('indCanal'); destroyChart('indSla');
+
+  charts['indBar'] = new Chart(document.getElementById('indBar').getContext('2d'), {
+    type: 'bar',
+    data: { labels:d.map(r=>r.data), datasets:[{ data:d.map(r=>r[currentMetric]||0), backgroundColor:'#4F8EF760', borderColor:'#4F8EF7', borderWidth:1.5, borderRadius:5 }] },
+    options: chartOpts(true)
+  });
+
+  const tel=totalFor(n,'tel'),chat=totalFor(n,'chat'),zen=totalFor(n,'zen'),sup=totalFor(n,'supplier');
+  charts['indCanal'] = new Chart(document.getElementById('indCanal').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels:['Telefone','Chat','Zendesk','Supplier'], datasets:[{ data:[tel,chat,zen,sup], backgroundColor:[CANAL_COLORS.tel,CANAL_COLORS.chat,CANAL_COLORS.zen,CANAL_COLORS.supplier], borderWidth:0, hoverOffset:6 }] },
+    options: { responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ color:'#8B93A8', font:{size:11}, boxWidth:10, padding:12 } } } }
+  });
+
+  const slaD = d.filter(r=>r.sla!==null&&r.sla>=0);
+  charts['indSla'] = new Chart(document.getElementById('indSla').getContext('2d'), {
+    type: 'bar',
+    data: { labels:slaD.map(r=>r.data), datasets:[{ data:slaD.map(r=>Math.round(r.sla)), backgroundColor:slaD.map(r=>r.sla>=90?'#22D3A060':r.sla>=70?'#F5A62360':'#F05C5C60'), borderColor:slaD.map(r=>r.sla>=90?'#22D3A0':r.sla>=70?'#F5A623':'#F05C5C'), borderWidth:1.5, borderRadius:4 }] },
+    options: { ...chartOpts(true), scales:{ y:{ min:0, max:100, ticks:{color:'#555E75',callback:v=>v+'%',font:{size:10}}, grid:{color:'#2A3045'} }, x:{ ticks:{color:'#555E75',font:{size:10}}, grid:{display:false} } } }
+  });
+
+  renderTable();
+}
+
+// ── SEMANA VIEW ───────────────────────────────────────────────
+function renderSemana() {
+  const weekMap = { S1:'01–07 jun', S2:'08–14 jun', S3:'15–21 jun', S4:'22–30 jun' };
+  const weekColors = { S1:'#4F8EF7', S2:'#22D3A0', S3:'#F5A623', S4:'#A78BFA' };
+
+  // Build week totals per consultant
+  const weeks = ['S1','S2','S3','S4'];
+  const consultorWeekData = names.map(n => {
+    const wt = {};
+    weeks.forEach(w => wt[w] = 0);
+    (RAW[n]||[]).forEach(r => { const w = getWeek(r.data); if(wt[w]!==undefined) wt[w] += r.total||0; });
+    return { n, ...wt };
+  }).filter(x => weeks.some(w => x[w] > 0));
+
+  // Week totals for team
+  const teamWeeks = {};
+  weeks.forEach(w => teamWeeks[w] = names.reduce((s,n)=>{ const r=(RAW[n]||[]).filter(x=>getWeek(x.data)===w); return s+r.reduce((a,b)=>a+(b.total||0),0); },0));
+
+  const area = document.getElementById('chartsArea');
+  area.innerHTML = `
+    <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Atendimentos por semana — time</div><div class="card-sub">Volume total por semana</div></div></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="semTeam"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div><div class="card-title">Comparativo semanal por consultor</div><div class="card-sub">Top 8 · Cada cor = uma semana</div></div></div>
+        <div class="legend" style="margin-bottom:10px">
+          ${weeks.map(w=>`<div class="legend-item"><span class="legend-dot" style="background:${weekColors[w]}"></span>${weekMap[w]}</div>`).join('')}
+        </div>
+        <div class="chart-wrap" style="height:220px"><canvas id="semConsultor"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  destroyChart('semTeam'); destroyChart('semConsultor');
+
+  charts['semTeam'] = new Chart(document.getElementById('semTeam').getContext('2d'), {
+    type: 'bar',
+    data: { labels: weeks.map(w=>weekMap[w]), datasets:[{ data:weeks.map(w=>teamWeeks[w]), backgroundColor:weeks.map(w=>weekColors[w]+'80'), borderColor:weeks.map(w=>weekColors[w]), borderWidth:1.5, borderRadius:6 }] },
+    options: chartOpts(true)
+  });
+
+  const top8 = consultorWeekData.sort((a,b)=>weeks.reduce((s,w)=>s+b[w]-a[w],0)).slice(0,8);
+  charts['semConsultor'] = new Chart(document.getElementById('semConsultor').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: top8.map(x=>x.n.split(' ')[0]),
+      datasets: weeks.map(w=>({ label:weekMap[w], data:top8.map(x=>x[w]), backgroundColor:weekColors[w]+'80', borderColor:weekColors[w], borderWidth:1.5, borderRadius:3 }))
+    },
+    options: { ...chartOpts(true), plugins:{ legend:{ display:false } } }
+  });
+
+  // Table
+  document.getElementById('tableTitle').textContent = 'Produtividade por semana';
+  document.getElementById('tableSub').textContent = 'Total de atendimentos por semana por consultor';
+  const t = document.getElementById('mainTable');
+  t.innerHTML = `<thead><tr><th>Consultor(a)</th>${weeks.map(w=>`<th>${weekMap[w]}</th>`).join('')}<th>Total</th></tr></thead>`;
+  const tb = document.createElement('tbody');
+  consultorWeekData.sort((a,b)=>weeks.reduce((s,w)=>s+b[w]-a[w],0)).forEach(x=>{
+    const tot = weeks.reduce((s,w)=>s+x[w],0);
+    tb.innerHTML += `<tr><td class="consultant-name">${x.n}</td>${weeks.map(w=>`<td class="num">${x[w]||0}</td>`).join('')}<td class="num" style="font-weight:600">${tot}</td></tr>`;
+  });
+  t.appendChild(tb);
+}
+
+// ── METAS VIEW ────────────────────────────────────────────────
+function renderMetas() {
+  const canais = ['tel','chat','zen','supplier','total'];
+  const canalNames = { tel:'Telefone', chat:'Chat', zen:'Zendesk', supplier:'Supplier', total:'Total' };
+
+  // Build per-consultant daily average
+  const consultorData = names.map(n => {
+    const d = RAW[n]||[];
+    const dias = d.filter(r=>r.total>0).length || 1;
+    const avgs = {};
+    canais.forEach(c => avgs[c] = Math.round(totalFor(n,c)/dias));
+    return { n, avgs, dias };
+  }).filter(x=>x.dias>0);
+
+  const area = document.getElementById('chartsArea');
+  area.innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><div><div class="card-title">Atingimento de metas — média diária por consultor</div><div class="card-sub">% de atingimento em relação à meta diária definida · Verde = acima da meta</div></div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;margin-top:4px" id="metaCards"></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><div><div class="card-title">Metas configuradas</div><div class="card-sub">Edite no código HTML para personalizar</div></div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+        ${canais.map(c=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">${canalNames[c]}</div><div style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text);margin-top:3px">${METAS[c]}<span style="font-size:13px;color:var(--text3)">/dia</span></div></div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  const mc = document.getElementById('metaCards');
+  consultorData.sort((a,b)=>{
+    const pctA = canais.reduce((s,c)=>s+Math.min(a.avgs[c]/METAS[c],1),0)/canais.length;
+    const pctB = canais.reduce((s,c)=>s+Math.min(b.avgs[c]/METAS[c],1),0)/canais.length;
+    return pctB - pctA;
+  }).forEach(({n, avgs, dias}) => {
+    const overall = canais.reduce((s,c)=>s+Math.min(avgs[c]/METAS[c],1),0)/canais.length;
+    const color = overall >= 1 ? '#22D3A0' : overall >= 0.7 ? '#F5A623' : '#F05C5C';
+    mc.innerHTML += `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:600;font-size:13px">${n}</div>
+          <div style="font-size:11px;color:${color};font-family:'JetBrains Mono',monospace;font-weight:600">${Math.round(overall*100)}% geral</div>
+        </div>
+        ${canais.map(c=>{
+          const pct = Math.min(avgs[c]/METAS[c],1);
+          const col = pct>=1?'#22D3A0':pct>=0.7?'#F5A623':'#F05C5C';
+          return `<div style="margin-bottom:7px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px"><span>${canalNames[c]}</span><span style="font-family:'JetBrains Mono',monospace;color:${col}">${avgs[c]}/${METAS[c]}</span></div>
+            <div class="meta-bar-wrap"><div class="meta-bar" style="width:${Math.round(pct*100)}%;background:${col}"></div></div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  });
+
+  renderTable();
+}
+
+// ── TABLE ─────────────────────────────────────────────────────
+function renderTable() {
+  const t = document.getElementById('mainTable');
+  if(currentView === 'individual') {
+    const n = currentConsultor;
+    document.getElementById('tableTitle').textContent = n + ' — histórico diário';
+    document.getElementById('tableSub').textContent = 'Detalhe por dia trabalhado';
+    t.innerHTML = `<thead><tr><th>Data</th><th>Total</th><th>Telefone</th><th>Chat</th><th>Zendesk</th><th>Supplier</th><th>SLA</th></tr></thead>`;
+    const tb = document.createElement('tbody');
+    (RAW[n]||[]).forEach(r=>{
+      tb.innerHTML += `<tr><td style="font-weight:500">${r.data}</td><td class="num">${r.total}</td><td class="num">${r.tel}</td><td class="num">${r.chat}</td><td class="num">${r.zen}</td><td class="num">${r.supplier}</td><td><span class="badge ${slaClass(r.sla)}">${slaText(r.sla)}</span></td></tr>`;
+    });
+    t.appendChild(tb);
+  } else if(currentView === 'metas') {
+    document.getElementById('tableTitle').textContent = 'Resumo de metas por consultor';
+    document.getElementById('tableSub').textContent = 'Média diária vs meta';
+    t.innerHTML = `<thead><tr><th>#</th><th>Consultor(a)</th><th>Dias</th><th>Tel médio</th><th>Chat médio</th><th>Zen médio</th><th>Sup médio</th><th>Total médio</th><th>Atingimento</th></tr></thead>`;
+    const tb = document.createElement('tbody');
+    const canais = ['tel','chat','zen','supplier','total'];
+    names.map(n=>{
+      const d=RAW[n]||[]; const dias=d.filter(r=>r.total>0).length||1;
+      const avgs={}; canais.forEach(c=>avgs[c]=Math.round(totalFor(n,c)/dias));
+      const overall=canais.reduce((s,c)=>s+Math.min(avgs[c]/METAS[c],1),0)/canais.length;
+      return {n,avgs,dias,overall};
+    }).sort((a,b)=>b.overall-a.overall).forEach(({n,avgs,dias,overall},i)=>{
+      const col = overall>=1?'badge-ok':overall>=0.7?'badge-warn':'badge-bad';
+      tb.innerHTML += `<tr><td class="rank-num">${i+1}</td><td class="consultant-name">${n}</td><td class="num">${dias}</td><td class="num">${avgs.tel}</td><td class="num">${avgs.chat}</td><td class="num">${avgs.zen}</td><td class="num">${avgs.supplier}</td><td class="num">${avgs.total}</td><td><span class="badge ${col}">${Math.round(overall*100)}%</span></td></tr>`;
+    });
+    t.appendChild(tb);
+  } else {
+    document.getElementById('tableTitle').textContent = 'Ranking do Time';
+    document.getElementById('tableSub').textContent = 'Total acumulado no período';
+    t.innerHTML = `<thead><tr><th>#</th><th>Consultor(a)</th><th>Dias</th><th>Total</th><th>Telefone</th><th>Chat</th><th>Zendesk</th><th>Supplier</th><th>SLA médio</th></tr></thead>`;
+    const tb = document.createElement('tbody');
+    names.map(n=>({n, total:totalFor(n,'total'), tel:totalFor(n,'tel'), chat:totalFor(n,'chat'), zen:totalFor(n,'zen'), sup:totalFor(n,'supplier'), sla:avgSLA(n), dias:(RAW[n]||[]).filter(r=>r.total>0).length}))
+      .sort((a,b)=>b.total-a.total)
+      .forEach((r,i)=>{
+        tb.innerHTML += `<tr><td class="rank-num">${i+1}</td><td class="consultant-name">${r.n}</td><td class="num">${r.dias}</td><td class="num" style="font-weight:600">${r.total}</td><td class="num">${r.tel}</td><td class="num">${r.chat}</td><td class="num">${r.zen}</td><td class="num">${r.sup}</td><td><span class="badge ${slaClass(r.sla)}">${slaText(r.sla)}</span></td></tr>`;
+      });
+    t.appendChild(tb);
+  }
+}
+
+// ── CHART OPTIONS ─────────────────────────────────────────────
+function chartOpts(noLegend) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: !noLegend, labels: { color:'#8B93A8', font:{size:11}, boxWidth:10 } }, tooltip: { backgroundColor:'#1E2333', borderColor:'#2A3045', borderWidth:1, titleColor:'#E8ECF4', bodyColor:'#8B93A8', padding:10 } },
+    scales: {
+      y: { beginAtZero:true, ticks:{ color:'#555E75', font:{size:10} }, grid:{ color:'#2A3045' } },
+      x: { ticks:{ color:'#555E75', font:{size:10}, maxRotation:45 }, grid:{ display:false } }
+    }
+  };
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
